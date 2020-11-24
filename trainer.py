@@ -142,8 +142,8 @@ def run_model(train_ds, test_ds):
         array_train_recall.append(train_recall.result())
         array_train_precision.append(train_precision.result())
 
-        for test_peptid, test_labels in test_ds:
-            t_loss, predictions = test_step(test_peptid, test_labels, model, loss_object)
+        for test_peptide, test_labels in test_ds:
+            t_loss, predictions = test_step(test_peptide, test_labels, model, loss_object)
             test_loss(t_loss)
             test_accuracy(test_labels, predictions)
             test_recall(test_labels, predictions)
