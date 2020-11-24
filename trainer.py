@@ -2,30 +2,46 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 
-from tensorflow.keras.layers import Dense, Flatten
+from tensorflow.keras.layers import Dense
 from tensorflow.keras import Model
 
-class MyModel(Model):
-  def __init__(self):
-    super(MyModel, self).__init__()
-    self.d1 = Dense(120, activation='relu')
-    self.d2 = Dense(50, activation='relu')
-    self.d3 = Dense(20, activation='relu')
-    self.d4 = Dense(1, activation='sigmoid')
 
-  def call(self, x):
-    x = self.d1(x)
-    x = self.d2(x)
-    x = self.d3(x)
-    return self.d4(x)
+class MyModel(Model):
+    def __init__(self):
+        """
+        our NN, has 4 fully connected layers
+        """
+        super(MyModel, self).__init__()
+        self.d1 = Dense(120, activation='relu')
+        self.d2 = Dense(50, activation='relu')
+        self.d3 = Dense(20, activation='relu')
+        self.d4 = Dense(1, activation='sigmoid')
+
+    def call(self, x):
+        """
+        the model flow
+        :param x: the model's input
+        :return: model output
+        """
+        x = self.d1(x)
+        x = self.d2(x)
+        x = self.d3(x)
+        return self.d4(x)
 
 
 @tf.function
-def train_step(peptids, labels, model, loss_object, optimizer):
+def train_step(peptides, labels, model, loss_object, optimizer):
+    """
+    a single train step of the model
+    :param peptides: X to train on
+    :param labels: y
+    :param model: model object
+    :param loss_object: loss object to use
+    :param optimizer: optimizer to use
+    :return: loss, predictions
+    """
     with tf.GradientTape() as tape:
-        # training=True is only needed if there are layers with different
-        # behavior during training versus inference (e.g. Dropout).
-        predictions = model(peptids, training=True)
+        predictions = model(peptides, training=True)
         loss = loss_object(labels, predictions, sample_weight=labels + 0.15)
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -34,21 +50,30 @@ def train_step(peptids, labels, model, loss_object, optimizer):
 
 
 @tf.function
-def test_step(peptids, labels, model, loss_object):
-    # training=False is only needed if there are layers with different
-    # behavior during training versus inference (e.g. Dropout).
-    predictions = model(peptids, training=False)
+def test_step(peptides, labels, model, loss_object):
+    """
+    a single test step of the model
+    :param peptides: X to train on
+    :param labels: y
+    :param model: model object
+    return test loss, predictions
+    """
+    predictions = model(peptides, training=False)
     t_loss = loss_object(labels, predictions)
 
     return t_loss, predictions
 
 
 def load_train_and_test_data():
+    """
+    loads pre calculated train and test matrices (90%-10%)
+    :return: train and test sets divided to batches
+    """
     # training and testing using labeled set
     x_train = np.loadtxt(r"data\x_train.txt")
     x_test = np.loadtxt(r"data\x_test.txt")
-    y_train = np.loadtxt(r"data\y_train.txt").reshape(-1,1)
-    y_test = np.loadtxt(r"data\y_test.txt").reshape(-1,1)
+    y_train = np.loadtxt(r"data\y_train.txt").reshape(-1, 1)
+    y_test = np.loadtxt(r"data\y_test.txt").reshape(-1, 1)
 
     train_ds = tf.data.Dataset.from_tensor_slices((x_train, y_train)).shuffle(1000).batch(128)
     # Create an instance of the model
@@ -58,6 +83,13 @@ def load_train_and_test_data():
 
 
 def run_model(train_ds, test_ds):
+    """
+    trains and tests the model on the labeled data. afterwards predicts labels for the protein spike data and prints the
+    top 5 peptides
+    :param train_ds: training set divided to batches
+    :param test_ds: test set divided to batches
+    :return:
+    """
     model = MyModel()
     loss_object = tf.keras.losses.BinaryCrossentropy(from_logits=True)
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.005)
@@ -134,16 +166,16 @@ def run_model(train_ds, test_ds):
             f'Test Precession: {test_precision.result() * 100}'
         )
 
-    with open (r"data\run.txt", 'a') as f:
+    with open(r"data\run.txt", 'a') as f:
         f.write(f'Epoch {epoch + 1}, '
-        f'Loss: {train_loss.result()}, '
-        f'Accuracy: {train_accuracy.result() * 100}, '
-        f'Recall: {train_recall.result() * 100}, '
-        f'Precession: {train_precision.result() * 100}, '
-        f'Test Loss: {test_loss.result()}, '
-        f'Test Accuracy: {test_accuracy.result() * 100}, '
-        f'Test Recall: {test_recall.result() * 100}, '
-        f'Test Precession: {test_precision.result() * 100} \n\n')
+                f'Loss: {train_loss.result()}, '
+                f'Accuracy: {train_accuracy.result() * 100}, '
+                f'Recall: {train_recall.result() * 100}, '
+                f'Precession: {train_precision.result() * 100}, '
+                f'Test Loss: {test_loss.result()}, '
+                f'Test Accuracy: {test_accuracy.result() * 100}, '
+                f'Test Recall: {test_recall.result() * 100}, '
+                f'Test Precession: {test_precision.result() * 100} \n\n')
 
     plt.plot(array_test_loss, label="test")
     plt.plot(array_train_loss, label="train")
@@ -174,13 +206,14 @@ def run_model(train_ds, test_ds):
 
     spike_protein_str = open('data\spike_protein_data.txt').read().replace('\n', '')
     for i in idx_top_five:
-        print(spike_protein_str[i:i+9])
+        print(spike_protein_str[i:i + 9])
         print(predictions[i])
 
 
 def main():
     train_ds, test_ds = load_train_and_test_data()
     run_model(train_ds, test_ds)
+
 
 if __name__ == "__main__":
     main()
